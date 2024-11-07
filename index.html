@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>logs</title>
+</head>
+<body>
+    <h2>1_client.py</h2>
+<xmp>
+import socket
+
+HOST = "127.0.0.1"  # The server's hostname or IP address
+PORT = 65432  # The port used by the server
+    
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+    s.connect((HOST, PORT))
+    while True:
+        message = input("Enter a string (type 'exit' to close): ")
+            
+        # If user types 'exit', break the loop and close the connection
+        if message.lower() == "exit":
+            print("Closing connection...")
+            break
+            
+        s.sendall(message.encode())  # Send the message to the server
+        data = s.recv(1024)  # Receive data from the server
+    
+        print(f"Received {data.decode()}")  # Display the received message
+    
+</xmp>
+<h2>1_server.py</h2>
+<xmp>
+
+
+import socket
+
+HOST = "127.0.0.1"  # Standard loopback interface address (localhost)
+PORT = 65432  # Port to listen on (non-privileged ports are > 1023)
+    
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+    s.bind((HOST, PORT))
+    s.listen()
+    conn, addr = s.accept()
+    with conn:
+        print(f"Connected by {addr}")
+        while True:
+            data = conn.recv(1024)
+            print("data from client:",data.decode())
+            if not data:
+                break
+            conn.sendall(data)
+        # conn.close()
+    
+    
+</xmp>
+<h2>2 and 9 Shared memory</h2>
+<xmp>
+from multiprocessing import Process, Value
+import time
+    
+def writer(shared_data):
+    shared_data.value = 42  # Writing data into shared memory
+    print("Writer Process: Written data:", shared_data.value)
+    
+def reader(shared_data):
+    time.sleep(1)  # Wait for writer to write data
+    print("Reader Process: Read data:", shared_data.value)
+    
+if __name__ == "__main__":
+    shared_data = Value('i', 0)  # Initialize shared memory (integer)
+    
+    writer_process = Process(target=writer, args=(shared_data,))
+    reader_process = Process(target=reader, args=(shared_data,))
+    
+    writer_process.start()
+    reader_process.start()
+    
+    writer_process.join()
+    reader_process.join()
+    
+    
+# code for using string in shared memory above is for integer
+    
+# from multiprocessing import Process, Array
+# import ctypes
+# import time
+    
+# def writer(shared_data):
+#     data = "Hello, World!"  # The string you want to write
+#     shared_data.value = data.encode()  # Write the encoded string to shared memory
+#     print("Writer Process: Written data:", shared_data.value.decode())
+    
+# def reader(shared_data):
+#     time.sleep(1)  # Wait for writer to write data
+#     print("Reader Process: Read data:", shared_data.value.decode())
+    
+# if __name__ == "__main__":
+#     # Initialize shared memory for a string of 100 characters
+#     shared_data = Array(ctypes.c_char, 100)
+    
+#     writer_process = Process(target=writer, args=(shared_data,))
+#     reader_process = Process(target=reader, args=(shared_data,))
+
+#     writer_process.start()
+#     reader_process.start()
+    
+#     writer_process.join()
+#     reader_process.join()
+#     reader_process.start()
+    
+#     # Wait for both processes to complete
+#     writer_process.join()
+#     reader_process.join()
+    
+</xmp>
+<h2>3 Message queue</h2>
+<xmp>
+from multiprocessing import Process, Queue
+import time
+    
+def sender(queue):
+    message = "Hello from Sender"
+    message1="hello from s2"
+    queue.put(message)  # Sending message to the queue
+    queue.put(message1)
+    print("Sender Process: Sent message:", message)
+    print("Sender Process: Sent message:", message1)
+    
+def receiver(queue):
+    time.sleep(1)  # Wait for sender to send message
+    message = queue.get()  # Receiving message from the queue
+    m2=queue.get()
+    print("Receiver Process: Received message:", message)
+    print("Receiver Process: Received message:", m2)
+        
+    
+if __name__ == "__main__":
+    queue = Queue()
+    
+    sender_process = Process(target=sender, args=(queue,))
+    receiver_process = Process(target=receiver, args=(queue,))
+    
+    sender_process.start()
+    receiver_process.start()
+    
+    sender_process.join()
+    receiver_process.join()
+    
+    
+    
+    
+# 3-msg-copy
+    
+# from multiprocessing import Process, Queue
+# import time
+    
+# def sender(queue):
+#     messages = ["Message 1 from sender", "Message 2 from sender", "Message 3 from sender", "STOP"]
+        
+#     for message in messages:
+#         queue.put(message)
+#         print(f"Sender: Sent '{message}' to the queue.")
+#         time.sleep(1)  # Simulate some delay between messages
+    
+# def receiver(queue):
+#     while True:
+#         # Wait for a message from the queue
+#         message = queue.get()
+#         print(f"Receiver: Received '{message}' from the queue.")
+            
+#         # Break the loop if the termination message is received
+#         if message == "STOP":
+#             print("Receiver: Termination signal received. Stopping.")
+#             break
+    
+# if __name__ == "__main__":
+#     # Create a queue for inter-process communication
+#     queue = Queue()
+    
+#     # Create the sender and receiver processes
+#     sender_process = Process(target=sender, args=(queue,))
+#     receiver_process = Process(target=receiver, args=(queue,))
+    
+#     # Start the processes
+#     sender_process.start()
+#     receiver_process.start()
+    
+#     # Wait for both processes to complete
+#     sender_process.join()
+#     receiver_process.join()    
+</xmp>
+<h2>4 and 10 multiple client</h2>
+<xmp>
+import socket
+
+def simple_client():
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client_socket.connect(('localhost', 5000))
+    
+    try:
+        while True:
+            message = input("You: ")
+            if message.lower() == 'exit':
+                client_socket.sendall(message.encode('utf-8'))
+                print("Disconnected from server...")
+                break
+            client_socket.sendall(message.encode('utf-8'))
+            response = client_socket.recv(1024).decode('utf-8')
+            print(response)
+    except Exception as e:
+        print(f"Connection error: {e}")
+    finally:
+        client_socket.close()
+    
+if __name__ == "__main__":
+    simple_client()    
+</xmp>
+<h2>4 and 10 multiple server</h2>
+<xmp>
+# import socket
+# import threading
+    
+# clients = []
+    
+# def handle_client(connection):
+#     clients.append(connection)
+#     try:
+#         while True:
+#             message = connection.recv(1024).decode('utf-8')
+#             if not message:
+#                 break
+#             print(f"Client: {message}")
+#             # Broadcast message to all clients except the sender
+#             for client in clients:
+#                 if client != connection:
+#                     client.sendall(f"Broadcast from another client: {message}".encode('utf-8'))
+#     finally:
+#         clients.remove(connection)
+#         connection.close()
+    
+# def simple_server():
+#     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
+#         server_socket.bind(('localhost', 5000))
+#         server_socket.listen(5)
+#         print("Server is listening on port 5000...")
+    
+#         while True:
+#             connection, _ = server_socket.accept()
+#             threading.Thread(target=handle_client, args=(connection,)).start()
+    
+# if __name__ == "__main__":
+#     simple_server()
+    
+import socket
+import threading
+    
+clients = []
+    
+def handle_client(connection, address):
+    clients.append(connection)
+    try:
+        while True:
+            message = connection.recv(1024).decode('utf-8')
+            if not message:
+                break
+            if message.lower() == 'exit':
+                print(f"Client {address} disconnected.")
+                break
+                
+            print(f"Client {address}: {message}")
+                
+            # Broadcast message to all clients except the sender
+            for client in clients:
+                if client != connection:
+                    try:
+                        client.sendall(f"Broadcast from {address}: {message}".encode('utf-8'))
+                    except Exception as e:
+                        print(f"Failed to send to client {client}: {e}")
+    except Exception as e:
+        print(f"Connection error with client {address}: {e}")
+    finally:
+        clients.remove(connection)
+        connection.close()
+        # Notify remaining clients about disconnection
+        for client in clients:
+            try:
+                client.sendall(f"Client {address} has left the chat.".encode('utf-8'))
+            except Exception as e:
+                print(f"Failed to send disconnect notice to client {client}: {e}")
+    
+def simple_server():
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
+        server_socket.bind(('localhost', 5000))
+        server_socket.listen(5)
+        print("Server is listening on port 5000...")
+    
+        while True:
+            connection, address = server_socket.accept()
+            print(f"New connection from {address}")
+            threading.Thread(target=handle_client, args=(connection, address)).start()
+    
+if __name__ == "__main__":
+    simple_server()    
+</xmp>
+<h2>5 file client</h2>
+<xmp>
+import socket
+
+# File to be sent
+filename = "sample.txt"
+    
+# Set up the client socket
+client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+client_socket.connect(('127.0.0.1', 5001))
+    
+# Open the file and send its contents
+with open(filename, "rb") as file:
+    data = file.read(1024)
+    while data:
+        client_socket.send(data)
+        data = file.read(1024)
+    
+print("File has been sent successfully.")
+    
+# Close the connection
+client_socket.close()    
+</xmp>
+<h2>file server 5</h2>
+<xmp>
+import socket
+
+server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server_socket.bind(('127.0.0.1', 5001))
+server_socket.listen(1)
+print(f"Server is listening on {'127.0.0.1'}:{5001}")
+    
+# Accept a connection from the client
+client_socket, client_address = server_socket.accept()
+print(f"Connection from {client_address} has been established.")
+    
+# Receive the file data from the client
+with open("received_file.txt", "wb") as file:
+    while True:
+        data = client_socket.recv(1024)  # Receive data in chunks
+        if not data:
+            break  # Break if no more data is sent
+        file.write(data)
+    
+print("File received and saved as 'received_file.txt'.")
+    
+# Close connections
+    client_socket.close()
+    server_socket.close()
+    
+</xmp>
+<h2>6 parent child c prg</h2>
+<xmp>
+    #include <stdio.h>
+        #include <unistd.h>
+        #include <string.h>
+        
+        #define MAX_SIZE 100
+        
+        int main() {
+            int p2c[2], c2p[2];
+            pid_t pid;
+            char msg[MAX_SIZE], reply[MAX_SIZE];
+        
+            if (pipe(p2c) == -1 || pipe(c2p) == -1 || (pid = fork()) < 0) {
+                perror("Error");
+                return 1;
+            }
+        
+            if (pid) {  // Parent
+                close(p2c[0]); close(c2p[1]);
+                printf("Parent, enter your message: ");
+                fgets(msg, MAX_SIZE, stdin);  // Take input from parent
+                msg[strcspn(msg, "\n")] = 0;  // Remove the newline character
+                write(p2c[1], msg, strlen(msg) + 1);
+                read(c2p[0], reply, MAX_SIZE);
+                printf("Parent received: %s\n", reply);
+            } else {  // Child
+                close(p2c[1]); close(c2p[0]);
+                read(p2c[0], reply, MAX_SIZE);
+                printf("Child received: %s\n", reply);
+                printf("Child, enter your response: ");
+                fgets(msg, MAX_SIZE, stdin);  // Take input from child
+                msg[strcspn(msg, "\n")] = 0;  // Remove the newline character
+                write(c2p[1], msg, strlen(msg) + 1);
+            }
+        
+            return 0;
+        }        
+</xmp>
+<h2>6 parent child python</h2>
+<xmp>
+import os
+
+MAX_SIZE = 100
+    
+def main():
+    # Create two pipes: one for parent-to-child (p2c) and one for child-to-parent (c2p)
+    p2c = os.pipe()  # Parent-to-Child
+    c2p = os.pipe()  # Child-to-Parent
+    
+    # Fork the process
+    pid = os.fork()
+    
+    if pid > 0:  # Parent process
+        os.close(p2c[0])  # Close read end of p2c
+        os.close(c2p[1])  # Close write end of c2p
+    
+        # Parent sends a message to the child
+        msg = input("Parent, enter your message: ")
+        os.write(p2c[1], msg.encode())  # Send message to the child
+        os.close(p2c[1])  # Close write end after sending
+    
+        # Parent reads the child's response
+        reply = os.read(c2p[0], MAX_SIZE).decode()
+        print("Parent received:", reply)
+        os.close(c2p[0])  # Close read end after receiving
+    
+    else:  # Child process
+        os.close(p2c[1])  # Close write end of p2c
+        os.close(c2p[0])  # Close read end of c2p
+    
+        # Child reads the parent's message
+        reply = os.read(p2c[0], MAX_SIZE).decode()
+        print("Child received:", reply)
+        os.close(p2c[0])  # Close read end after receiving
+    
+        # Child sends a response back to the parent
+        msg = input("Child, enter your response: ")
+        os.write(c2p[1], msg.encode())  # Send response to the parent
+        os.close(c2p[1])  # Close write end after sending
+    
+if __name__ == "__main__":
+    main()
+    
+</xmp>
+<h2>7 rpc client</h2>
+<xmp>
+import socket
+
+# Set up the client
+SERVER_HOST = '127.0.0.1'
+SERVER_PORT = 5000
+    
+# Connect to the server
+client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+client_socket.connect((SERVER_HOST, SERVER_PORT))
+    
+# Send a function call request
+request = input("Enter request (e.g., 'add 5 3' or 'subtract 10 4'): ")
+client_socket.send(request.encode())
+    
+# Receive and display the result
+result = client_socket.recv(1024).decode()
+print(f"Result from server: {result}")
+    
+# Close the connection
+client_socket.close()    
+</xmp>
+<h2>7 rpc server</h2>
+<xmp>
+import socket
+
+def add(a, b):
+    return a + b
+    
+def subtract(a, b):
+    return a - b
+    
+def process_request(request):
+    parts = request.split()
+    if len(parts) != 3:
+        return "Invalid request format."
+    
+    command, a, b = parts
+    try:
+        a, b = int(a), int(b)
+    except ValueError:
+        return "Arguments must be integers."
+    
+    if command == "add":
+        return str(add(a, b))
+    elif command == "subtract":
+        return str(subtract(a, b))
+    else:
+        return "Unknown command."
+    
+# Set up the server
+SERVER_HOST = '127.0.0.1'
+SERVER_PORT = 5000
+server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server_socket.bind((SERVER_HOST, SERVER_PORT))
+server_socket.listen(1)
+print(f"Server is listening on {SERVER_HOST}:{SERVER_PORT}")
+    
+    
+client_socket, client_address = server_socket.accept()
+print(f"Connection from {client_address} established.")
+    
+# Receive and process request
+request = client_socket.recv(1024).decode()
+print(f"Received request: {request}")
+result = process_request(request)
+print(f"Sending result: {result}")
+    
+# Send the result and close connection
+client_socket.send(result.encode())
+client_socket.close()    
+</xmp>
+<h2>8</h2>
+<xmp>
+import multiprocessing
+import time
+from multiprocessing import shared_memory, Queue
+    
+def writer(shared_mem_name, input_queue):
+    # Access the existing shared memory
+    existing_shm = shared_memory.SharedMemory(name=shared_mem_name)
+        
+    while True:
+        # Retrieve message from the queue
+        message = input_queue.get()
+            
+        # Check if the message is "exit"
+        if message == "exit":
+            # Write the exit message to shared memory
+            existing_shm.buf[:len(message)] = message.encode()
+            print("Writer: Exiting...")
+            break
+    
+        # Write the message to shared memory
+        existing_shm.buf[:len(message)] = message.encode()
+        print(f"Writer: Data written to shared memory: {message}")
+            
+        # Small delay to allow reader to read
+        time.sleep(1)
+        
+    # Close the shared memory access
+    existing_shm.close()
+    
+def reader(shared_mem_name, size):
+    # Access the existing shared memory
+    existing_shm = shared_memory.SharedMemory(name=shared_mem_name)
+        
+    while True:
+        # Read data from shared memory
+        message = bytes(existing_shm.buf[:size]).decode().strip()
+        # Check if the message is "exit"
+        if "exit" in message:
+            print("Reader: 'exit' received, stopping reader.")
+            break
+            
+        # Print the read message
+        if message:
+            print(f"Reader: Data read from shared memory: {message}")
+            
+        # Small delay to allow writer to write
+        time.sleep(5)
+        
+    # Close the shared memory access
+    existing_shm.close()
+    
+if __name__ == "__main__":
+    # Create a Queue to pass messages from main to the writer process
+    input_queue = Queue()
+    
+    # Initial message for shared memory
+    initial_message = " " * 100  # Allocate enough space for messages
+        
+    # Create a shared memory segment with a fixed size
+    shm = shared_memory.SharedMemory(create=True, size=len(initial_message))
+        
+    # Start writer process with shared memory and input queue
+    writer_process = multiprocessing.Process(target=writer, args=(shm.name, input_queue))
+    writer_process.start()
+        
+    # Start reader process
+    reader_process = multiprocessing.Process(target=reader, args=(shm.name, len(initial_message)))
+    reader_process.start()
+        
+    # Main loop to get user input and send it to the writer process via the queue
+    while True:
+        message = input("Enter a message: ")
+        input_queue.put(message)  # Send the message to the writer process
+            
+        if message == "exit":
+            break
+    
+    # Wait for both processes to complete
+    writer_process.join()
+    reader_process.join()
+        
+    # Clean up the shared memory
+    shm.close()
+    shm.unlink()
+</xmp>
+</body>
+</html>
